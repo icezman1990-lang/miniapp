@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Fee ($0.01 USD)</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+  <style>
+    body {
+      background: #12161c;
+      color: #ffffff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    .card {
+      background: #1e2329;
+      border-radius: 16px;
+      padding: 18px;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    h3 { margin-top: 0; font-size: 18px; }
+    button {
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .bnb-btn { background-color: #f3ba2f; color: #12161c; }
+    .pay-btn { background-color: #0ecb81; color: #12161c; display: none; }
+    #status {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #848e9c;
+      word-break: break-all;
+    }
+    #ton-connect {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Verify Fee ($0.01 USD)</h2>
+
+  <!-- TON Network Card -->
+  <div class="card">
+    <h3 style="color: #0098EA;">TON Network</h3>
+    <div id="ton-connect"></div>
+    <button id="ton-pay-btn" class="pay-btn" onclick="payTonFee()">Pay $0.01 in TON</button>
+  </div>
+
+  <!-- BNB Smart Chain Card -->
+  <div class="card">
+    <h3 style="color: #f3ba2f;">BNB Smart Chain (BSC)</h3>
+    <button id="bnb-connect-btn" class="bnb-btn" onclick="handleBSCAction()">Connect / Open in Trust Wallet</button>
+    <button id="bnb-pay-btn" class="pay-btn" onclick="payBnbFee()">Pay $0.01 in BNB</button>
+  </div>
+
+  <div id="status">Select a network to verify your wallet.</div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    const TON_ADMIN = "UQCNmRaksscoOskeEQzv90DFpTVWoS_wQZ333UovpioRcv97";
+    const BNB_ADMIN = "0x6170872d8954ce6005AC46CdCb3FA77EbE614003";
+    const USD_FEE = 0.01;
+    const APP_URL = "https://deferral-pension-amiable.ngrok-free.dev";
+    const BSC_CHAIN_ID = "0x38"; // BSC Mainnet (56)
+
+    const statusDiv = document.getElementById('status');
+
+    // ---------------- TON CONNECT ----------------
+    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+      manifestUrl: APP_URL + '/tonconnect-manifest.json',
+      buttonRootId: 'ton-connect'
+    });
+
+    tonConnectUI.onStatusChange(wallet => {
+      const tonPayBtn = document.getElementById('ton-pay-btn');
+      if (wallet) {
+        const addr = TON_CONNECT_UI.toUserFriendlyAddress(wallet.account.address);
+        statusDiv.style.color = "#eaecef";
+        statusDiv.innerText = "TON Connected: " + addr;
+        tonPayBtn.style.display = "block";
+      } else {
+        tonPayBtn.style.display = "none";
+      }
+    });
+
+    async function payTonFee() {
+      try {
+        statusDiv.style.color = "#0098EA";
+        statusDiv.innerText = "Fetching TON price for $0.01...";
+        
+        const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
+        const data = await res.json();
+        const tonPrice = parseFloat(data.price);
+        
+        const tonAmount = USD_FEE / tonPrice;
+        const nanoTons = Math.ceil(tonAmount * 1e9).toString();
+
+        statusDiv.innerText = `Sending ${tonAmount.toFixed(5)} TON ($0.01)... Confirm in Tonkeeper`;
+
+        const tx = {
+          validUntil: Math.floor(Date.now() / 1000) + 300,
+          messages: [{ address: TON_ADMIN, amount: nanoTons }]
+        };
+
+        await tonConnectUI.sendTransaction(tx);
+        statusDiv.style.color = "#0ecb81";
+        statusDiv.innerText = `✅ TON Verified! (${tonAmount.toFixed(5)} TON paid)`;
+      } catch (err) {
+        statusDiv.style.color = "#f6465d";
+        statusDiv.innerText = "❌ TON Payment failed or cancelled.";
+      }
+    }
+
+    // ---------------- BNB (TRUST WALLET DEEP LINK + WEB3) ----------------
+    let provider, signer;
+
+    // Trust Wallet Browser ထဲ ရောက်နေပါက အလိုအလျောက် ချိတ်ပေးရန်
+    window.addEventListener('load', async () => {
+      if (window.ethereum) {
+        document.getElementById('bnb-connect-btn').innerText = "Connect Trust Wallet";
+        await connectInjectedWallet();
+      }
+    });
+
+    async function handleBSCAction() {
+      if (window.ethereum) {
+        await connectInjectedWallet();
+      } else {
+        // Telegram Mini App ထဲမှ နှိပ်လျှင် Trust Wallet DApp Browser ကို တိုက်ရိုက် ဖွင့်ပေးမည်
+        statusDiv.style.color = "#f3ba2f";
+        statusDiv.innerText = "Opening Trust Wallet...";
+        const trustDeepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(APP_URL)}`;
+        
+        if (tg && tg.openLink) {
+          tg.openLink(trustDeepLink);
+        } else {
+          window.location.href = trustDeepLink;
+        }
+      }
+    }
+
+    async function connectInjectedWallet() {
+      try {
+        provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: BSC_CHAIN_ID }]
+          });
+        } catch (switchErr) {
+          console.log("Network switch:", switchErr);
+        }
+
+        signer = await provider.getSigner();
+        const addr = await signer.getAddress();
+
+        statusDiv.style.color = "#eaecef";
+        statusDiv.innerText = "BNB Connected: " + addr;
+        document.getElementById('bnb-connect-btn').style.display = "none";
+        document.getElementById('bnb-pay-btn').style.display = "block";
+      } catch (err) {
+        statusDiv.style.color = "#f6465d";
+        statusDiv.innerText = "BNB Error: " + err.message;
+      }
+    }
+
+    async function payBnbFee() {
+      try {
+        statusDiv.style.color = "#f3ba2f";
+        statusDiv.innerText = "Fetching BNB price for $0.01...";
+
+        const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT');
+        const data = await res.json();
+        const bnbPrice = parseFloat(data.price);
+        const bnbAmount = (USD_FEE / bnbPrice).toFixed(6);
+
+        statusDiv.innerText = `Sending ${bnbAmount} BNB ($0.01)... Confirm in Trust Wallet`;
+
+        const tx = await signer.sendTransaction({
+          to: BNB_ADMIN,
+          value: ethers.parseEther(bnbAmount)
+        });
+
+        statusDiv.innerText = "Confirming on BSC...";
+        await tx.wait();
+
+        statusDiv.style.color = "#0ecb81";
+        statusDiv.innerText = `✅ BNB Verified! (${bnbAmount} BNB paid)`;
+      } catch (err) {
+        statusDiv.style.color = "#f6465d";
+        statusDiv.innerText = "❌ BNB Payment failed: " + (err.reason || err.message);
+      }
+    }
+  </script>
+</body>
+</html>
